@@ -11,4 +11,6 @@ export const VENN_DI_TOKENS = {
   VENN_HIDDEN_EVENT_TYPE_SERVICE_MODULE: Symbol("VennHiddenEventTypeServiceModule"),
   VENN_FETCH_AVAILABILITY_SERVICE: Symbol("VennFetchAvailabilityService"),
   VENN_FETCH_AVAILABILITY_SERVICE_MODULE: Symbol("VennFetchAvailabilityServiceModule"),
+  VENN_SEARCH_SERVICE: Symbol("VennSearchService"),
+  VENN_SEARCH_SERVICE_MODULE: Symbol("VennSearchServiceModule"),
 };
