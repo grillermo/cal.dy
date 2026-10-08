@@ -1,0 +1,24 @@
+{
+  "invitee_publisher_error": false,
+  "today": "2026-10-20",
+  "availability_timezone": "UTC",
+  "days": [
+    { "date": "2026-10-20", "status": "unavailable", "spots": [], "enabled": true },
+    {
+      "date": "2026-10-21",
+      "status": "available",
+      "spots": [
+        { "status": "available", "start_time": "2026-10-21T14:00:00Z", "invitees_remaining": 1 },
+        { "status": "available", "start_time": "2026-10-21T15:00:00Z", "invitees_remaining": 1 },
+        { "status": "unavailable", "start_time": "2026-10-21T16:00:00Z", "invitees_remaining": 0 }
+      ],
+      "enabled": true
+    },
+    {
+      "date": "2026-10-22",
+      "status": "available",
+      "spots": [{ "status": "available", "start_time": "2026-10-22T09:00:00Z", "invitees_remaining": 1 }],
+      "enabled": true
+    }
+  ]
+}

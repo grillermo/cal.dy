@@ -1,0 +1,7 @@
+{
+  "uuid": "00000000-0000-4000-8000-000000000001",
+  "name": "Test 60 Minute Meeting",
+  "slug": "60min",
+  "duration": 60,
+  "profile": { "slug": "ana", "name": "Test" }
+}
