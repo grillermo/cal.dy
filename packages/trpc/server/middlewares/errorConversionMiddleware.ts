@@ -9,13 +9,14 @@ import { middleware } from "../trpc";
  * original error as `error.cause`, so the result has to be inspected rather than caught.
  */
 export const errorConversionMiddleware = middleware(async ({ next }) => {
+  let result: Awaited<ReturnType<typeof next>>;
   try {
-    const result = await next();
-    if (!result.ok && result.error.cause instanceof ErrorWithCode) {
-      throw convertErrorWithCodeToTRPCError(result.error.cause);
-    }
-    return result;
+    result = await next();
   } catch (e) {
     throw convertErrorWithCodeToTRPCError(e);
   }
+  if (!result.ok && result.error.cause instanceof ErrorWithCode) {
+    throw convertErrorWithCodeToTRPCError(result.error.cause);
+  }
+  return result;
 });

@@ -1,6 +1,8 @@
-import { ErrorWithCode } from "@calcom/lib/errors";
-import type { TRPCError } from "@trpc/server";
 import { z } from "zod";
+
+import { ErrorWithCode } from "@calcom/lib/errors";
+
+import type { TRPCError } from "@trpc/server";
 
 type ErrorShape = {
   message: string;

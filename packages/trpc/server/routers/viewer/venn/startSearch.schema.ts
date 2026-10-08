@@ -1,17 +1,9 @@
 import { z } from "zod";
-
-const isValidTimeZone = (timeZone: string) => {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-    return true;
-  } catch {
-    return false;
-  }
-};
+import { isValidTimeZone } from "./timeZone";
 
 export const ZStartSearchInputSchema = z
   .object({
-    contactIds: z.array(z.number().int()).min(1),
+    contactIds: z.array(z.number().int()).min(1).max(50),
     windowStart: z.coerce.date(),
     windowEnd: z.coerce.date(),
     timeZone: z.string().min(1).refine(isValidTimeZone, { message: "Invalid time zone" }),
