@@ -1,0 +1,10 @@
+export const ALLOWED_DURATIONS = [15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 240] as const;
+export const DEFAULT_WINDOW_DAYS = 14;
+export const MAX_WINDOW_DAYS = 31;
+export const MIN_NOTICE_MINUTES = 120;
+export const SLOT_STEP_MINUTES = 15;
+export const STALE_AFTER_MS = 5 * 60 * 1000;
+export const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
+export const HIDDEN_EVENT_SLUG = "venn-group-meeting";
+export const HIDDEN_EVENT_TITLE = "Group Meeting";
+export const DEFAULT_TITLE = "Group Meeting";
