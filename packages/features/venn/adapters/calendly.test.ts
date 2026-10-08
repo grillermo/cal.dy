@@ -1,3 +1,4 @@
+import { ErrorCode } from "@calcom/lib/errorCodes";
 import { describe, expect, it, vi } from "vitest";
 import lookup from "./__fixtures__/calendly-lookup.json";
 import oct from "./__fixtures__/calendly-range-2026-10.json";
@@ -96,7 +97,7 @@ describe("CalendlyAdapter", () => {
         start: new Date("2026-10-20T00:00:00Z"),
         end: new Date("2026-10-27T00:00:00Z"),
       })
-    ).rejects.toThrow(LINK);
+    ).rejects.toMatchObject({ code: ErrorCode.InternalServerError, message: expect.stringContaining(LINK) });
   });
 
   it("names the link on a network failure", async () => {
@@ -110,6 +111,9 @@ describe("CalendlyAdapter", () => {
         start: new Date("2026-10-20T00:00:00Z"),
         end: new Date("2026-10-27T00:00:00Z"),
       })
-    ).rejects.toThrow(new RegExp(`${escapeRegExp(LINK)}.*ECONNRESET`));
+    ).rejects.toMatchObject({
+      code: ErrorCode.InternalServerError,
+      message: expect.stringMatching(new RegExp(`${escapeRegExp(LINK)}.*ECONNRESET`)),
+    });
   });
 });

@@ -1,3 +1,4 @@
+import { ErrorCode } from "@calcom/lib/errorCodes";
 import { describe, expect, it, vi } from "vitest";
 import eventType from "./__fixtures__/calcom-event-type.json";
 import slots from "./__fixtures__/calcom-slots.json";
@@ -59,7 +60,10 @@ describe("CalcomAdapter", () => {
     const f = vi.fn(async () => json({}, 503));
     await expect(
       new CalcomAdapter({ fetch: f as unknown as typeof fetch, sleep }).fetchAvailability(args)
-    ).rejects.toThrow(args.url);
+    ).rejects.toMatchObject({
+      code: ErrorCode.InternalServerError,
+      message: expect.stringContaining(args.url),
+    });
   });
 
   it("names the link on a network failure", async () => {
@@ -68,6 +72,9 @@ describe("CalcomAdapter", () => {
     });
     await expect(
       new CalcomAdapter({ fetch: f as unknown as typeof fetch, sleep }).fetchAvailability(args)
-    ).rejects.toThrow(new RegExp(`${escapeRegExp(args.url)}.*ECONNRESET`));
+    ).rejects.toMatchObject({
+      code: ErrorCode.InternalServerError,
+      message: expect.stringMatching(new RegExp(`${escapeRegExp(args.url)}.*ECONNRESET`)),
+    });
   });
 });

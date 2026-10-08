@@ -6,8 +6,8 @@ type Options = {
 };
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-// Response() throws if given a body with these statuses.
-const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+// Response() throws if given a body with these statuses (101 is rejected by the constructor altogether).
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
 const isRetryable = (status: number) => status >= 500 || status === 429;
 
 export async function fetchWithRetry(
