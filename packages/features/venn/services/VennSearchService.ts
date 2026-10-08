@@ -3,7 +3,14 @@ import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import { type FetchLocalSlots, localSlotsToStarts } from "../adapters/local";
 import { buildCandidateSlots, defaultDurationMinutes } from "../candidateSlots";
-import { ALLOWED_DURATIONS, MAX_WINDOW_DAYS, SEARCH_TTL_MS, VENN_TASK_LEASE_MS } from "../constants";
+import {
+  ALLOWED_DURATIONS,
+  CONTACT_REMOVED_ERROR,
+  MAX_WINDOW_DAYS,
+  REMOVED_CONTACT_NAME,
+  SEARCH_TTL_MS,
+  VENN_TASK_LEASE_MS,
+} from "../constants";
 import { deserializeIntervals, intersectAll, slotsToIntervals } from "../intervals";
 import type { VennContactRepository } from "../repositories/VennContactRepository";
 import type {
@@ -30,16 +37,19 @@ export interface IVennSearchServiceDeps {
 
 export type StartSearchInput = { contactIds: number[]; windowStart: Date; windowEnd: Date; timeZone: string };
 
+export type VennParticipantDto = {
+  contactId: number;
+  name: string;
+  /** null when the contact was deleted after the search started. */
+  provider: VennProviderKind | null;
+  status: VennSearchStatus;
+  durationMinutes: number | null;
+  error: string | null;
+};
+
 export type VennStatusResult = {
   status: VennSearchStatus;
-  participants: {
-    contactId: number;
-    name: string;
-    provider: VennProviderKind;
-    status: VennSearchStatus;
-    durationMinutes: number | null;
-    error: string | null;
-  }[];
+  participants: VennParticipantDto[];
   defaultDurationMinutes?: number;
   durationMinutes?: number;
   slots?: VennSlots;
@@ -106,23 +116,33 @@ export class VennSearchService {
 
     const contacts = await this.deps.contactRepo.findManyByIdsAndUserId(search.contactIds, userId);
     const byId = new Map(contacts.map((c) => [c.id, c]));
-    const participants = search.results.map((r) => {
+    const participants = search.results.map((r): VennParticipantDto => {
       const contact = byId.get(r.contactId);
+      if (!contact) {
+        return {
+          contactId: r.contactId,
+          name: REMOVED_CONTACT_NAME,
+          provider: null,
+          status: "FAILED",
+          durationMinutes: null,
+          error: r.error ?? CONTACT_REMOVED_ERROR,
+        };
+      }
       return {
         contactId: r.contactId,
-        name: contact?.name ?? "Unknown contact",
-        provider: contact?.provider ?? ("CALENDLY" as VennProviderKind),
+        name: contact.name,
+        provider: contact.provider,
         status: r.status,
         durationMinutes: r.durationMinutes,
         error: r.error,
       };
     });
 
-    if (search.results.some((r) => r.status === "FAILED")) {
+    if (participants.some((p) => p.status === "FAILED")) {
       await this.deps.searchRepo.setStatus(search.id, "FAILED");
       return { status: "FAILED", participants };
     }
-    if (search.results.some((r) => r.status === "PENDING")) {
+    if (participants.some((p) => p.status === "PENDING")) {
       return { status: "PENDING", participants };
     }
 

@@ -75,10 +75,19 @@ describe("VennFetchAvailabilityService.run", () => {
     expect(repo.markResultFailed).not.toHaveBeenCalled();
   });
 
+  it("marks the result FAILED when the contact was deleted after the search started", async () => {
+    const { service, repo, adapter } = make({ durationMinutes: 30, freeIntervals: [] });
+    repo.findResultForFetch.mockResolvedValueOnce({ ...row, contact: null } as never);
+    await expect(service.run(5, { isFinalAttempt: false })).resolves.toBeUndefined();
+    expect(repo.markResultFailed).toHaveBeenCalledWith(5, "contact removed");
+    expect(adapter.fetchAvailability).not.toHaveBeenCalled();
+  });
+
   it("is a no-op when the result row was already cleaned up", async () => {
     const { service, repo } = make({ durationMinutes: 30, freeIntervals: [] });
     repo.findResultForFetch.mockResolvedValueOnce(null);
     await expect(service.run(5, { isFinalAttempt: false })).resolves.toBeUndefined();
     expect(repo.markResultDone).not.toHaveBeenCalled();
+    expect(repo.markResultFailed).not.toHaveBeenCalled();
   });
 });

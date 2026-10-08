@@ -24,11 +24,12 @@ export type VennSearchDto = {
 export class VennSearchRepository {
   constructor(private prismaClient: PrismaClient) {}
 
-  // VennSearchResult has no relation to VennContact (bare contactId), so the contact is a second lookup.
+  // VennSearchResult has no relation to VennContact (bare contactId), so the contact is a second lookup and is
+  // null when the contact was deleted after the search started.
   async findResultForFetch(id: number): Promise<{
     id: number;
     search: { windowStart: Date; windowEnd: Date };
-    contact: { id: number; bookingUrl: string; provider: VennProviderKind };
+    contact: { id: number; bookingUrl: string; provider: VennProviderKind } | null;
   } | null> {
     const result = await this.prismaClient.vennSearchResult.findUnique({
       where: { id },
@@ -44,7 +45,6 @@ export class VennSearchRepository {
       where: { id: result.contactId },
       select: { id: true, bookingUrl: true, provider: true },
     });
-    if (!contact) return null;
 
     return { id: result.id, search: result.search, contact };
   }

@@ -1,6 +1,7 @@
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { ErrorWithCode } from "@calcom/lib/errors";
 import type { AvailabilityAdapter } from "../adapters/types";
+import { CONTACT_REMOVED_ERROR } from "../constants";
 import { serializeIntervals } from "../intervals";
 import type { VennSearchRepository } from "../repositories/VennSearchRepository";
 import type { VennProviderKind } from "../types";
@@ -22,12 +23,17 @@ export class VennFetchAvailabilityService {
   async run(searchResultId: number, { isFinalAttempt }: { isFinalAttempt: boolean }): Promise<void> {
     const row = await this.deps.searchRepo.findResultForFetch(searchResultId);
     if (!row) return;
+    if (!row.contact) {
+      await this.deps.searchRepo.markResultFailed(searchResultId, CONTACT_REMOVED_ERROR);
+      return;
+    }
+    const { contact } = row;
 
     try {
       const { durationMinutes, freeIntervals } = await this.deps
-        .adapterFor(row.contact.provider)
+        .adapterFor(contact.provider)
         .fetchAvailability({
-          url: row.contact.bookingUrl,
+          url: contact.bookingUrl,
           start: row.search.windowStart,
           end: row.search.windowEnd,
         });
@@ -39,7 +45,7 @@ export class VennFetchAvailabilityService {
       const permanent = isPermanent(error);
       if (permanent || isFinalAttempt) {
         const reason = error instanceof Error ? error.message : String(error);
-        await this.deps.searchRepo.markResultFailed(searchResultId, `${row.contact.bookingUrl}: ${reason}`);
+        await this.deps.searchRepo.markResultFailed(searchResultId, `${contact.bookingUrl}: ${reason}`);
       }
       if (permanent) return;
       throw error;

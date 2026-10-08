@@ -111,6 +111,44 @@ describe("VennSearchService (integration)", () => {
     ]);
   });
 
+  it("fails the participant and the search when a contact is deleted mid-search", async () => {
+    const { service, searchRepo, contactRepo } = makeService();
+    const doomed = await contactRepo.create({
+      userId: userA,
+      name: "Cid",
+      email: `venn-test-${stamp}-cid@example.com`,
+      bookingUrl: "https://cal.com/venn-test/c",
+      provider: "CALCOM",
+    });
+    const { searchId } = await service.startSearch(userA, {
+      contactIds: [contactIds[0], doomed.id],
+      ...window,
+    });
+    await prisma.vennContact.delete({ where: { id: doomed.id } });
+    const adapter = { fetchAvailability: vi.fn(async () => ({ durationMinutes: 30, freeIntervals: [] })) };
+    const fetcher = new VennFetchAvailabilityService({ searchRepo, adapterFor: () => adapter });
+    const results = await prisma.vennSearchResult.findMany({
+      where: { searchId },
+      select: { id: true, contactId: true },
+    });
+    for (const r of results) await fetcher.run(r.id, { isFinalAttempt: false });
+
+    const doomedRow = await prisma.vennSearchResult.findFirstOrThrow({
+      where: { searchId, contactId: doomed.id },
+      select: { status: true, error: true },
+    });
+    expect(doomedRow).toEqual({ status: "FAILED", error: "contact removed" });
+    expect(adapter.fetchAvailability).toHaveBeenCalledTimes(1);
+
+    const res = await service.searchStatus(userA, { searchId });
+    expect(res.status).toBe("FAILED");
+    expect(res.participants.find((p) => p.contactId === doomed.id)).toMatchObject({
+      name: "Removed contact",
+      provider: null,
+      status: "FAILED",
+    });
+  });
+
   it("deletes searches older than 24h on the next startSearch", async () => {
     const { service } = makeService();
     const { searchId: oldId } = await service.startSearch(userA, { contactIds, ...window });

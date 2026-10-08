@@ -187,6 +187,24 @@ describe("searchStatus", () => {
     expect(searchRepo.setStatus).toHaveBeenCalledWith("s1", "FAILED");
   });
 
+  it("reports a contact deleted after the search started as a FAILED 'Removed contact' and fails the search", async () => {
+    const { service, contactRepo, searchRepo } = make(
+      search([result({}), result({ id: 2, contactId: 2, status: "PENDING", freeIntervals: null })])
+    );
+    contactRepo.findManyByIdsAndUserId.mockResolvedValueOnce([contacts[0]]);
+    const res = await service.searchStatus(7, { searchId: "s1" });
+    expect(res.status).toBe("FAILED");
+    expect(res.participants[1]).toEqual({
+      contactId: 2,
+      name: "Removed contact",
+      provider: null,
+      status: "FAILED",
+      durationMinutes: null,
+      error: "contact removed",
+    });
+    expect(searchRepo.setStatus).toHaveBeenCalledWith("s1", "FAILED");
+  });
+
   it("returns default duration and the intersection with the organizer when all are done", async () => {
     const { service } = make(search([result({}), result({ id: 2, contactId: 2, durationMinutes: 60 })]));
     const res = await service.searchStatus(7, { searchId: "s1" });

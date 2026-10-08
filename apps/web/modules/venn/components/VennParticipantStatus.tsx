@@ -4,7 +4,7 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
 import type { VennParticipant } from "../hooks/useVennSearch";
 
-const PROVIDER_LABELS: Record<VennParticipant["provider"], string> = {
+const PROVIDER_LABELS: Record<NonNullable<VennParticipant["provider"]>, string> = {
   CALENDLY: "Calendly",
   CALCOM: "Cal.com",
   LOCAL: "Cal.diy",
@@ -24,7 +24,7 @@ export function VennParticipantStatus({ participants }: { participants: VennPart
     if (participant.status === "FAILED") return participant.error ?? t("venn_participant_failed");
     if (participant.status === "PENDING") return t("venn_participant_fetching");
     return t("venn_participant_done", {
-      provider: PROVIDER_LABELS[participant.provider],
+      provider: participant.provider ? PROVIDER_LABELS[participant.provider] : "",
       minutes: participant.durationMinutes ?? "?",
     });
   };
