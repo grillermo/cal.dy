@@ -507,6 +507,7 @@ model User {
   agents                         Agent[]
   oAuthClients                   OAuthClient[]
   holidaySettings                UserHolidaySettings?
+  vennContacts                   VennContact[]
 
   autoOptInFeatures Boolean @default(false)
 
@@ -2848,4 +2849,58 @@ model AttributeSyncFieldMapping {
 
   @@unique([integrationAttributeSyncId, attributeId])
   @@index([integrationAttributeSyncId])
+}
+
+enum VennProvider {
+  CALENDLY
+  CALCOM
+  LOCAL
+}
+
+enum VennStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+model VennContact {
+  id         Int          @id @default(autoincrement())
+  userId     Int
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  bookingUrl String
+  provider   VennProvider
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, bookingUrl])
+}
+
+model VennSearch {
+  id          String             @id @default(uuid())
+  userId      Int
+  contactIds  Int[]
+  windowStart DateTime
+  windowEnd   DateTime
+  timeZone    String
+  status      VennStatus         @default(PENDING)
+  createdAt   DateTime           @default(now())
+  results     VennSearchResult[]
+
+  @@index([userId, createdAt])
+}
+
+model VennSearchResult {
+  id              Int        @id @default(autoincrement())
+  searchId        String
+  search          VennSearch @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  contactId       Int
+  status          VennStatus @default(PENDING)
+  durationMinutes Int?
+  freeIntervals   Json?
+  error           String?
+  fetchedAt       DateTime?
+
+  @@unique([searchId, contactId])
 }
