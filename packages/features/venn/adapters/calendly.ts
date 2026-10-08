@@ -79,7 +79,7 @@ export class CalendlyAdapter implements AvailabilityAdapter {
     for (const { rangeStart, rangeEnd } of monthsInWindow(start, end)) {
       const rangeRes = await this.get(
         url,
-        `https://calendly.com/api/booking/event_types/${lookup.data.uuid}/calendar/range?timezone=UTC&diagnostics=false&range_start=${rangeStart}&range_end=${rangeEnd}`,
+        `https://calendly.com/api/booking/event_types/${encodeURIComponent(lookup.data.uuid)}/calendar/range?timezone=UTC&diagnostics=false&range_start=${rangeStart}&range_end=${rangeEnd}`,
         headers
       );
       if (!rangeRes.ok) {

@@ -50,6 +50,20 @@ describe("CalendlyAdapter", () => {
     expect(rangeCall?.[1]).toMatchObject({ headers: expect.objectContaining({ Referer: LINK }) });
   });
 
+  it("percent-encodes the looked-up uuid in the range URL path", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes("/lookup") ? json({ ...lookup, uuid: "../a b?x=1" }) : json({ days: [] })
+    );
+    const adapter = new CalendlyAdapter({ fetch: fetchMock as unknown as typeof fetch, sleep });
+    await adapter.fetchAvailability({
+      url: LINK,
+      start: new Date("2026-10-20T00:00:00Z"),
+      end: new Date("2026-10-27T00:00:00Z"),
+    });
+    const rangeUrl = fetchMock.mock.calls.map(([u]) => u).find((u) => u.includes("/calendar/range"));
+    expect(rangeUrl).toContain("/event_types/..%2Fa%20b%3Fx%3D1/calendar/range?");
+  });
+
   it("returns an empty interval list (not an error) when nothing is available", async () => {
     const empty = { days: [] };
     const fetchMock = vi.fn(async (url: string) => (url.includes("/lookup") ? json(lookup) : json(empty)));
