@@ -3,12 +3,27 @@
 import SettingsHeader from "@calcom/features/settings/appDir/SettingsHeader";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Button } from "@calcom/ui/components/button";
+import { useState } from "react";
 import { VennContactForm } from "../components/VennContactForm";
 import { useVennContacts } from "../hooks/useVennContacts";
 
 export default function VennContactsView() {
   const { t } = useLocale();
   const { contacts, add, remove, isLoading } = useVennContacts();
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const handleRemove = async (id: number) => {
+    setRemovingId(id);
+    setRemoveError(null);
+    try {
+      await remove({ id });
+    } catch (error) {
+      setRemoveError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   return (
     <SettingsHeader
@@ -38,11 +53,18 @@ export default function VennContactsView() {
                 variant="icon"
                 StartIcon="trash"
                 aria-label={t("delete")}
-                onClick={() => remove({ id: contact.id })}
+                loading={removingId === contact.id}
+                disabled={removingId !== null}
+                onClick={() => void handleRemove(contact.id)}
               />
             </li>
           ))}
         </ul>
+        {removeError ? (
+          <p role="alert" className="text-error text-sm" data-testid="venn-contact-remove-error">
+            {removeError}
+          </p>
+        ) : null}
         <VennContactForm onAdd={add} />
       </div>
     </SettingsHeader>

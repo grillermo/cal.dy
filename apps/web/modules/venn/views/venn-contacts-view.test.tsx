@@ -80,6 +80,37 @@ describe("VennContactsView", () => {
     );
   });
 
+  const ada = {
+    id: 7,
+    name: "Ada",
+    email: "ada@example.com",
+    bookingUrl: "https://calendly.com/a/b",
+    provider: "CALENDLY",
+  };
+
+  it("disables the delete button while the removal is pending", async () => {
+    contacts = [ada];
+    let resolve: () => void = () => {};
+    remove.mockReturnValue(new Promise<void>((r) => (resolve = r)));
+    render(<VennContactsView />);
+    const button = screen.getByRole("button", { name: "delete" });
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toBeDisabled());
+    fireEvent.click(button);
+    expect(remove).toHaveBeenCalledTimes(1);
+    resolve();
+    await waitFor(() => expect(button).not.toBeDisabled());
+  });
+
+  it("shows the server message inline when removal fails", async () => {
+    contacts = [ada];
+    remove.mockRejectedValue(new Error("Contact not found"));
+    render(<VennContactsView />);
+    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+    expect(await screen.findByTestId("venn-contact-remove-error")).toHaveTextContent("Contact not found");
+    expect(screen.getByRole("button", { name: "delete" })).not.toBeDisabled();
+  });
+
   it("removes a contact", () => {
     contacts = [
       {
@@ -90,6 +121,7 @@ describe("VennContactsView", () => {
         provider: "CALENDLY",
       },
     ];
+    remove.mockResolvedValue({});
     render(<VennContactsView />);
     fireEvent.click(screen.getByRole("button", { name: "delete" }));
     expect(remove).toHaveBeenCalledWith({ id: 7 });
