@@ -6,6 +6,8 @@ type Options = {
 };
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+// Response() throws if given a body with these statuses.
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 const isRetryable = (status: number) => status >= 500 || status === 429;
 
 export async function fetchWithRetry(
@@ -29,7 +31,8 @@ export async function fetchWithRetry(
     const request = (async () => {
       const res = await fetchFn(input, { ...init, signal: controller.signal });
       const text = await res.text();
-      return new Response(text, { status: res.status, statusText: res.statusText, headers: res.headers });
+      const body = NULL_BODY_STATUSES.has(res.status) ? null : text;
+      return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
     })();
     request.catch(() => {});
     try {

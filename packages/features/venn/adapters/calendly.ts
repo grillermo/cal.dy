@@ -111,7 +111,7 @@ export class CalendlyAdapter implements AvailabilityAdapter {
     try {
       return await fetchWithRetry(this.fetchFn, url, { method: "GET", headers }, { sleep: this.sleep });
     } catch (error) {
-      throw ErrorWithCode.Factory.BadRequest(
+      throw ErrorWithCode.Factory.InternalServerError(
         `Could not reach Calendly for ${link}: ${error instanceof Error ? error.message : String(error)}`
       );
     }

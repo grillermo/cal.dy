@@ -5,6 +5,7 @@ import { CalcomAdapter } from "./calcom";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const sleep = async () => {};
 const args = {
   url: "https://cal.com/bob/30min",
@@ -67,6 +68,6 @@ describe("CalcomAdapter", () => {
     });
     await expect(
       new CalcomAdapter({ fetch: f as unknown as typeof fetch, sleep }).fetchAvailability(args)
-    ).rejects.toThrow(new RegExp(`${args.url}.*ECONNRESET`));
+    ).rejects.toThrow(new RegExp(`${escapeRegExp(args.url)}.*ECONNRESET`));
   });
 });

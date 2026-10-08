@@ -7,6 +7,7 @@ import { CalendlyAdapter, monthsInWindow } from "./calendly";
 const LINK = "https://calendly.com/ana/60min";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const sleep = async () => {};
 
 describe("monthsInWindow", () => {
@@ -109,6 +110,6 @@ describe("CalendlyAdapter", () => {
         start: new Date("2026-10-20T00:00:00Z"),
         end: new Date("2026-10-27T00:00:00Z"),
       })
-    ).rejects.toThrow(new RegExp(`${LINK}.*ECONNRESET`));
+    ).rejects.toThrow(new RegExp(`${escapeRegExp(LINK)}.*ECONNRESET`));
   });
 });

@@ -54,4 +54,11 @@ describe("fetchWithRetry", () => {
     ).rejects.toThrow(/timed out/);
     expect(f).toHaveBeenCalledTimes(2);
   });
+
+  it.each([204, 304])("passes a %i response through without retrying", async (status) => {
+    const f = vi.fn(async () => new Response(null, { status }));
+    const res = await fetchWithRetry(f as unknown as typeof fetch, "https://x", {}, { sleep });
+    expect(res.status).toBe(status);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
 });

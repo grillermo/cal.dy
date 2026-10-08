@@ -67,7 +67,7 @@ export class CalcomAdapter implements AvailabilityAdapter {
     try {
       return await fetchWithRetry(this.fetchFn, url, { method: "GET", headers }, { sleep: this.sleep });
     } catch (error) {
-      throw ErrorWithCode.Factory.BadRequest(
+      throw ErrorWithCode.Factory.InternalServerError(
         `Could not reach cal.com for ${link}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
