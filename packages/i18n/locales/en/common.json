@@ -4803,5 +4803,6 @@
   "venn_duration_minutes": "{{count}} min",
   "venn_window_days": "Next {{count}} days",
   "venn_no_slots_on_day": "No times on this day.",
+  "venn_search_not_ready": "Find times again before booking.",
   "ADD_NEW_STRINGS_ABOVE_THIS_LINE_TO_PREVENT_MERGE_CONFLICTS": "↑↑↑↑↑↑↑↑↑↑↑↑↑ Add your new strings above here ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
 }

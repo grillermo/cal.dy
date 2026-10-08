@@ -12,7 +12,7 @@ import { VennParticipantStatus } from "../components/VennParticipantStatus";
 import { VennSlotPicker } from "../components/VennSlotPicker";
 import { useVennContacts } from "../hooks/useVennContacts";
 import type { VennSearchState, VennSlotsResult } from "../hooks/useVennSearch";
-import { useVennSearch } from "../hooks/useVennSearch";
+import { useVennSearch, VennBookNotReadyError } from "../hooks/useVennSearch";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const WINDOW_OPTIONS = [7, DEFAULT_WINDOW_DAYS, 21, MAX_WINDOW_DAYS];
@@ -59,26 +59,44 @@ type BookingFormProps = {
   disabled: boolean;
   isBooking: boolean;
   onBook: (input: { start: Date; title: string }) => Promise<{ uid: string } | null>;
+  onSelectSlot: () => void;
 };
 
-function BookingForm({ slots, timeZone, durationControl, disabled, isBooking, onBook }: BookingFormProps) {
+function BookingForm({
+  slots,
+  timeZone,
+  durationControl,
+  disabled,
+  isBooking,
+  onBook,
+  onSelectSlot,
+}: BookingFormProps) {
   const { t } = useLocale();
   const router = useRouter();
   const [title, setTitle] = useState(() => t("venn_default_title"));
   const [error, setError] = useState<string | null>(null);
+  // isPending turns false before router.push finishes navigating, so a second click would book again.
+  const [submitted, setSubmitted] = useState(false);
   // Tie the selection to the slots it was picked from so a new result set clears it.
   const [selection, setSelection] = useState<{ source: typeof slots; time: string } | null>(null);
   const selectedTime = selection?.source === slots ? selection.time : null;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selectedTime) return;
+    if (!selectedTime || submitted) return;
     setError(null);
+    setSubmitted(true);
     try {
       const booking = await onBook({ start: new Date(selectedTime), title });
-      if (booking) router.push(`/booking/${booking.uid}`);
+      if (!booking) {
+        setSubmitted(false);
+        return;
+      }
+      router.push(`/booking/${booking.uid}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("something_went_wrong"));
+      setSubmitted(false);
+      if (e instanceof VennBookNotReadyError) setError(t("venn_search_not_ready"));
+      else setError(e instanceof Error ? e.message : t("something_went_wrong"));
     }
   };
 
@@ -89,7 +107,10 @@ function BookingForm({ slots, timeZone, durationControl, disabled, isBooking, on
         slots={slots}
         timeZone={timeZone}
         selectedTime={selectedTime}
-        onSelect={(time) => setSelection({ source: slots, time })}
+        onSelect={(time) => {
+          setSelection({ source: slots, time });
+          onSelectSlot();
+        }}
       />
       <TextField
         label={t("venn_meeting_title")}
@@ -103,7 +124,11 @@ function BookingForm({ slots, timeZone, durationControl, disabled, isBooking, on
           {error}
         </p>
       ) : null}
-      <Button type="submit" data-testid="venn-book" disabled={!selectedTime || disabled} loading={isBooking}>
+      <Button
+        type="submit"
+        data-testid="venn-book"
+        disabled={!selectedTime || disabled || submitted}
+        loading={isBooking}>
         {t("venn_book")}
       </Button>
     </form>
@@ -122,7 +147,7 @@ function hasAnySlot(state: VennSearchState): boolean {
 export default function VennView() {
   const { t } = useLocale();
   const { contacts, add } = useVennContacts();
-  const { state, start, retry, setDuration, book, isBooking } = useVennSearch();
+  const { state, start, retry, setDuration, book, isBooking, clearNotice } = useVennSearch();
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const [windowDays, setWindowDays] = useState(DEFAULT_WINDOW_DAYS);
   const [timeZone] = useState(browserTimeZone);
@@ -232,6 +257,7 @@ export default function VennView() {
             disabled={!!state.isRefreshing}
             isBooking={isBooking}
             onBook={book}
+            onSelectSlot={clearNotice}
           />
         ) : null}
       </section>

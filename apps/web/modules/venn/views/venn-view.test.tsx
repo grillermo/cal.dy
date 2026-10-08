@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { VennSlotPicker } from "../components/VennSlotPicker";
 import type { VennSearchState } from "../hooks/useVennSearch";
 import VennView from "./venn-view";
 
@@ -10,6 +11,7 @@ const retry = vi.fn();
 const setDuration = vi.fn();
 const book = vi.fn();
 const add = vi.fn();
+const clearNotice = vi.fn();
 let state: VennSearchState = { phase: "idle", participants: [] };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -67,7 +69,8 @@ vi.mock("../hooks/useVennContacts", () => ({
 }));
 
 vi.mock("../hooks/useVennSearch", () => ({
-  useVennSearch: () => ({ state, start, retry, setDuration, book, isBooking: false }),
+  useVennSearch: () => ({ state, start, retry, setDuration, book, clearNotice, isBooking: false }),
+  VennBookNotReadyError: class VennBookNotReadyError extends Error {},
 }));
 
 const ana = {
@@ -89,7 +92,7 @@ const bob = {
 
 describe("VennView", () => {
   beforeEach(() => {
-    for (const fn of [push, start, retry, setDuration, book, add]) fn.mockReset();
+    for (const fn of [push, start, retry, setDuration, book, add, clearNotice]) fn.mockReset();
     state = { phase: "idle", participants: [] };
   });
 
@@ -219,5 +222,57 @@ describe("VennView", () => {
     state = { phase: "polling", participants: [], notice: "venn_search_stale" };
     render(<VennView />);
     expect(screen.getByTestId("venn-notice")).toHaveTextContent("venn_search_stale");
+  });
+
+  it("disables Book after a successful booking so a second click does not book again", async () => {
+    state = {
+      phase: "done",
+      participants: [ana],
+      durationMinutes: 30,
+      slots: { slots: { "2026-10-12": [{ time: "2026-10-12T15:00:00.000Z" }] } },
+    };
+    book.mockResolvedValue({ uid: "booking-uid" });
+    render(<VennView />);
+    fireEvent.click(screen.getAllByTestId("venn-slot")[0]);
+    fireEvent.click(screen.getByTestId("venn-book"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/booking/booking-uid"));
+
+    expect(screen.getByTestId("venn-book")).toBeDisabled();
+    fireEvent.submit(screen.getByTestId("venn-book").closest("form") as HTMLFormElement);
+    expect(book).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the notice when the user picks a slot", () => {
+    state = {
+      phase: "done",
+      participants: [ana],
+      durationMinutes: 30,
+      notice: "venn_slot_taken",
+      slots: { slots: { "2026-10-12": [{ time: "2026-10-12T15:00:00.000Z" }] } },
+    };
+    render(<VennView />);
+    fireEvent.click(screen.getAllByTestId("venn-slot")[0]);
+    expect(clearNotice).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("VennSlotPicker", () => {
+  it("resets the picked day when a new set of slots arrives", () => {
+    const first = {
+      "2026-10-12": [{ time: "2026-10-12T15:00:00.000Z" }],
+      "2026-11-03": [{ time: "2026-11-03T09:00:00.000Z" }],
+    };
+    const { rerender } = render(
+      <VennSlotPicker slots={first} timeZone="UTC" selectedTime={null} onSelect={vi.fn()} />
+    );
+    fireEvent.click(screen.getByText("day-2026-11-03"));
+    expect(screen.getByTestId("venn-slot")).toHaveAttribute("data-time", "2026-11-03T09:00:00.000Z");
+
+    const second = {
+      "2026-10-12": [{ time: "2026-10-12T15:00:00.000Z" }],
+      "2026-11-03": [{ time: "2026-11-03T10:00:00.000Z" }],
+    };
+    rerender(<VennSlotPicker slots={second} timeZone="UTC" selectedTime={null} onSelect={vi.fn()} />);
+    expect(screen.getByTestId("venn-slot")).toHaveAttribute("data-time", "2026-10-12T15:00:00.000Z");
   });
 });

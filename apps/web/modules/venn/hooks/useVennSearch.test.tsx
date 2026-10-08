@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useVennSearch } from "./useVennSearch";
+import { useVennSearch, VennBookNotReadyError } from "./useVennSearch";
 
 const startSearch = vi.fn();
 const statusFetch = vi.fn();
@@ -256,5 +256,102 @@ describe("useVennSearch", () => {
     expect(result.current.state.phase).toBe("failed");
     expect(result.current.state.error).toBe("One or more contacts were not found");
     expect(statusFetch).not.toHaveBeenCalled();
+  });
+
+  it("stops polling after unmount, even when an in-flight fetch resolves PENDING", async () => {
+    let resolveInFlight: (value: unknown) => void = () => undefined;
+    statusFetch.mockResolvedValueOnce(pending).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveInFlight = resolve;
+        })
+    );
+    const hook = await startedHook();
+    await advance(1000);
+    expect(statusFetch).toHaveBeenCalledTimes(2);
+
+    hook.unmount();
+    statusFetch.mockResolvedValue(pending);
+    await act(async () => {
+      resolveInFlight(pending);
+    });
+    await advance(5000);
+    expect(statusFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the last duration pick when duration responses arrive out of order", async () => {
+    statusFetch.mockResolvedValue(done);
+    const { result } = await startedHook();
+
+    const resolvers: Record<number, (value: unknown) => void> = {};
+    statusFetch.mockImplementation(
+      ({ durationMinutes }: { durationMinutes: number }) =>
+        new Promise((resolve) => {
+          resolvers[durationMinutes] = resolve;
+        })
+    );
+    await act(async () => {
+      result.current.setDuration(45);
+      result.current.setDuration(60);
+    });
+
+    const sixtySlots = { slots: { "2026-10-12": [{ time: "2026-10-12T16:00:00.000Z" }] } };
+    const fortyFiveSlots = { slots: { "2026-10-12": [{ time: "2026-10-12T17:00:00.000Z" }] } };
+    await act(async () => {
+      resolvers[60]({ ...done, durationMinutes: 60, slots: sixtySlots });
+    });
+    await act(async () => {
+      resolvers[45]({ ...done, durationMinutes: 45, slots: fortyFiveSlots });
+    });
+    await flush();
+
+    expect(result.current.state.durationMinutes).toBe(60);
+    expect(result.current.state.slots).toEqual(sixtySlots);
+
+    book.mockResolvedValue({ uid: "u" });
+    await act(async () => {
+      await result.current.book({ start: new Date("2026-10-12T16:00:00Z"), title: "x" });
+    });
+    expect(book.mock.calls[0][0].durationMinutes).toBe(60);
+  });
+
+  it("re-arms the 90 second deadline when a duration change comes back PENDING", async () => {
+    statusFetch.mockResolvedValue(done);
+    const { result } = await startedHook();
+    await advance(80_000);
+
+    statusFetch.mockResolvedValue(pending);
+    await act(async () => {
+      result.current.setDuration(60);
+    });
+    await flush();
+    expect(result.current.state.phase).toBe("polling");
+
+    await advance(89_000);
+    expect(result.current.state.phase).toBe("polling");
+    await advance(1000);
+    expect(result.current.state.phase).toBe("timeout");
+  });
+
+  it("throws VennBookNotReadyError when there is no finished search", async () => {
+    const { result } = renderHook(() => useVennSearch());
+    await act(async () => {
+      await expect(
+        result.current.book({ start: new Date("2026-10-12T15:00:00Z"), title: "x" })
+      ).rejects.toBeInstanceOf(VennBookNotReadyError);
+    });
+    expect(book).not.toHaveBeenCalled();
+  });
+
+  it("clearNotice removes the notice", async () => {
+    statusFetch.mockResolvedValue(done);
+    book.mockRejectedValue(conflict("venn_slot_taken"));
+    const { result } = await startedHook();
+    await act(async () => {
+      await result.current.book({ start: new Date("2026-10-12T15:00:00Z"), title: "x" });
+    });
+    expect(result.current.state.notice).toBe("venn_slot_taken");
+    act(() => result.current.clearNotice());
+    expect(result.current.state.notice).toBeUndefined();
   });
 });

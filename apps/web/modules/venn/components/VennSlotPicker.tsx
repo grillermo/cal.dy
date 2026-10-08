@@ -27,10 +27,16 @@ export function VennSlotPicker({ slots, timeZone, selectedTime, onSelect }: Prop
         .sort(),
     [slots]
   );
-  const [pickedDay, setPickedDay] = useState<string | null>(null);
-  const activeDay = pickedDay && days.includes(pickedDay) ? pickedDay : (days[0] ?? null);
-  const [browsingMonth, setBrowsingMonth] = useState<Dayjs | null>(null);
-  const browsingDate = browsingMonth ?? dayjs(activeDay ?? undefined).startOf("month");
+  // Picks are tied to the slots they were made against so a new result set (another duration or
+  // window) resets both the day and the displayed month to the first available day.
+  const [picked, setPicked] = useState<{ source: typeof slots; day: string | null; month: Dayjs | null }>({
+    source: slots,
+    day: null,
+    month: null,
+  });
+  const current = picked.source === slots ? picked : { source: slots, day: null, month: null };
+  const activeDay = current.day && days.includes(current.day) ? current.day : (days[0] ?? null);
+  const browsingDate = current.month ?? dayjs(activeDay ?? undefined).startOf("month");
 
   const formatTime = useMemo(
     () => new Intl.DateTimeFormat(i18n.language, { hour: "numeric", minute: "2-digit", timeZone }),
@@ -47,9 +53,9 @@ export function VennSlotPicker({ slots, timeZone, selectedTime, onSelect }: Prop
             slots={slots}
             selected={activeDay ? dayjs(activeDay) : null}
             browsingDate={browsingDate}
-            onMonthChange={(date) => setBrowsingMonth(date.startOf("month"))}
+            onMonthChange={(date) => setPicked({ ...current, month: date.startOf("month") })}
             onChange={(date) => {
-              if (date) setPickedDay(date.format("YYYY-MM-DD"));
+              if (date) setPicked({ ...current, day: date.format("YYYY-MM-DD") });
             }}
             showNoAvailabilityDialog={false}
           />

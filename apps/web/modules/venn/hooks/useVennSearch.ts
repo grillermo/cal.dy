@@ -53,7 +53,10 @@ function applyStatus(state: VennSearchState, result: VennStatus): VennSearchStat
   };
 }
 
-function useTimers() {
+// Every start and refresh begins a new run so responses and timers from superseded requests
+// (an older search, an earlier duration pick, an unmounted view) are ignored.
+function useRunControl() {
+  const runId = useRef(0);
   const poll = useRef<Timer | null>(null);
   const deadline = useRef<Timer | null>(null);
   const clear = useCallback(() => {
@@ -62,8 +65,36 @@ function useTimers() {
     poll.current = null;
     deadline.current = null;
   }, []);
-  useEffect(() => clear, [clear]);
-  return useMemo(() => ({ poll, deadline, clear }), [clear]);
+  const next = useCallback(() => {
+    clear();
+    return ++runId.current;
+  }, [clear]);
+  const isCurrent = useCallback((id: number) => id === runId.current, []);
+  const schedule = useCallback((fn: () => void) => {
+    poll.current = setTimeout(fn, POLL_INTERVAL_MS);
+  }, []);
+  const armDeadline = useCallback(
+    (onTimeout: () => void) => {
+      if (deadline.current) clearTimeout(deadline.current);
+      deadline.current = setTimeout(() => {
+        next();
+        onTimeout();
+      }, POLL_TIMEOUT_MS);
+    },
+    [next]
+  );
+  useEffect(() => () => void next(), [next]);
+  return useMemo(
+    () => ({ next, isCurrent, clear, schedule, armDeadline }),
+    [next, isCurrent, clear, schedule, armDeadline]
+  );
+}
+
+export class VennBookNotReadyError extends Error {
+  constructor() {
+    super("There is no finished search to book from");
+    this.name = "VennBookNotReadyError";
+  }
 }
 
 export type VennStartInput = RouterInputs["viewer"]["venn"]["startSearch"];
@@ -87,12 +118,15 @@ export function useVennSearch() {
   const startMutation = trpc.viewer.venn.startSearch.useMutation();
   const bookMutation = trpc.viewer.venn.book.useMutation();
   const [state, setState] = useState<VennSearchState>(IDLE);
-  const timers = useTimers();
-  // Each start bumps the run id so responses and timers from an abandoned run are ignored.
-  const runIdRef = useRef(0);
+  const run = useRunControl();
   const searchIdRef = useRef<string | null>(null);
   const durationRef = useRef<number | undefined>(undefined);
   const lastInputRef = useRef<VennStartInput | null>(null);
+
+  const armDeadline = useCallback(
+    () => run.armDeadline(() => setState((s) => ({ ...s, phase: "timeout", isRefreshing: false }))),
+    [run]
+  );
 
   const poll = useCallback(
     async (runId: number, searchId: string) => {
@@ -104,27 +138,26 @@ export function useVennSearch() {
           { staleTime: 0 }
         );
       } catch (error) {
-        if (runId !== runIdRef.current) return;
-        timers.clear();
+        if (!run.isCurrent(runId)) return;
+        run.clear();
         setState((s) => ({ ...s, phase: "failed", error: errorMessage(error), isRefreshing: false }));
         return;
       }
-      if (runId !== runIdRef.current) return;
+      if (!run.isCurrent(runId)) return;
       setState((s) => applyStatus(s, result));
       if (result.status === "PENDING") {
-        timers.poll.current = setTimeout(() => void poll(runId, searchId), POLL_INTERVAL_MS);
+        run.schedule(() => void poll(runId, searchId));
         return;
       }
-      timers.clear();
+      run.clear();
       if (result.status === "DONE") durationRef.current = result.durationMinutes;
     },
-    [utils, timers]
+    [utils, run]
   );
 
   const start = useCallback(
     async (input: VennStartInput, notice?: VennNotice) => {
-      timers.clear();
-      const runId = ++runIdRef.current;
+      const runId = run.next();
       lastInputRef.current = input;
       searchIdRef.current = null;
       durationRef.current = undefined;
@@ -133,30 +166,28 @@ export function useVennSearch() {
       try {
         ({ searchId } = await startMutation.mutateAsync(input));
       } catch (error) {
-        if (runId !== runIdRef.current) return;
+        if (!run.isCurrent(runId)) return;
         setState({ phase: "failed", participants: [], error: errorMessage(error), notice });
         return;
       }
-      if (runId !== runIdRef.current) return;
+      if (!run.isCurrent(runId)) return;
       searchIdRef.current = searchId;
-      timers.deadline.current = setTimeout(() => {
-        runIdRef.current++;
-        timers.clear();
-        setState((s) => ({ ...s, phase: "timeout" }));
-      }, POLL_TIMEOUT_MS);
+      armDeadline();
       await poll(runId, searchId);
     },
-    [poll, startMutation, timers]
+    [armDeadline, poll, startMutation, run]
   );
 
   const refresh = useCallback(
     async (notice?: VennNotice) => {
       const searchId = searchIdRef.current;
       if (!searchId) return;
+      const runId = run.next();
       setState((s) => ({ ...s, isRefreshing: true, notice }));
-      await poll(runIdRef.current, searchId);
+      armDeadline();
+      await poll(runId, searchId);
     },
-    [poll]
+    [armDeadline, poll, run]
   );
 
   const setDuration = useCallback(
@@ -173,7 +204,7 @@ export function useVennSearch() {
       const searchId = searchIdRef.current;
       const input = lastInputRef.current;
       const durationMinutes = durationRef.current;
-      if (!searchId || !input || !durationMinutes) return null;
+      if (!searchId || !input || !durationMinutes) throw new VennBookNotReadyError();
       try {
         const { uid } = await bookMutation.mutateAsync({
           searchId,
@@ -202,6 +233,7 @@ export function useVennSearch() {
     },
     setDuration,
     book,
+    clearNotice: () => setState((s) => (s.notice ? { ...s, notice: undefined } : s)),
     isBooking: bookMutation.isPending,
   };
 }
