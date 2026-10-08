@@ -4792,5 +4792,16 @@
   "venn_retry": "Retry",
   "venn_book": "Book",
   "venn_unsupported_link": "Unsupported booking link",
+  "venn_description": "Find a time that works for you and your contacts, then book it.",
+  "venn_select_contacts": "Who should attend?",
+  "venn_participant_done": "{{provider}}, {{minutes}}m",
+  "venn_participant_fetching": "fetching",
+  "venn_participant_failed": "failed",
+  "venn_search_failed": "Availability could not be fetched for every participant. Fix or remove the contact and search again.",
+  "venn_pick_time": "Pick a time",
+  "venn_default_title": "Group Meeting",
+  "venn_duration_minutes": "{{count}} min",
+  "venn_window_days": "Next {{count}} days",
+  "venn_no_slots_on_day": "No times on this day.",
   "ADD_NEW_STRINGS_ABOVE_THIS_LINE_TO_PREVENT_MERGE_CONFLICTS": "↑↑↑↑↑↑↑↑↑↑↑↑↑ Add your new strings above here ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
 }

@@ -30,6 +30,11 @@ const getNavigationItems = (): NavigationItemType[] => [
     icon: "clock",
   },
   {
+    name: "venn",
+    href: "/venn",
+    icon: "users",
+  },
+  {
     name: "apps",
     href: "/apps",
     icon: "grid-3x3",
