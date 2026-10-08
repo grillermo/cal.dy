@@ -1,3 +1,4 @@
+import { Prisma } from "@calcom/prisma/client";
 import { describe, expect, it, vi } from "vitest";
 import { VennContactService } from "./VennContactService";
 
@@ -64,5 +65,39 @@ describe("VennContactService.add", () => {
       service.add(7, { name: "X", email: "x@example.com", bookingUrl: "https://cal.com/x/y" })
     ).rejects.toThrow("not found");
     expect(repo.create).not.toHaveBeenCalled();
+  });
+});
+
+const prismaError = (code: string) =>
+  new Prisma.PrismaClientKnownRequestError("boom", { code, clientVersion: "test" });
+const valid = { name: "Ana", email: "ana@example.com", bookingUrl: "https://cal.com/ana/30min" };
+
+describe("VennContactService write errors", () => {
+  it("maps a duplicate link (P2002) to a conflict naming the link", async () => {
+    const { service, repo } = make();
+    repo.create.mockRejectedValueOnce(prismaError("P2002"));
+    await expect(service.add(7, valid)).rejects.toMatchObject({
+      code: "conflict_error",
+      message: expect.stringContaining("https://cal.com/ana/30min"),
+    });
+  });
+
+  it("maps a duplicate link on update to a conflict", async () => {
+    const { service, repo } = make();
+    repo.update.mockRejectedValueOnce(prismaError("P2002"));
+    await expect(service.update(7, 1, valid)).rejects.toMatchObject({ code: "conflict_error" });
+  });
+
+  it("maps a missing contact (P2025) to not found", async () => {
+    const { service, repo } = make();
+    repo.update.mockRejectedValueOnce(prismaError("P2025"));
+    await expect(service.update(7, 99, valid)).rejects.toMatchObject({ code: "not_found_error" });
+  });
+
+  it("rethrows unknown errors untouched", async () => {
+    const { service, repo } = make();
+    const boom = new Error("db down");
+    repo.create.mockRejectedValueOnce(boom);
+    await expect(service.add(7, valid)).rejects.toBe(boom);
   });
 });

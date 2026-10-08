@@ -1,6 +1,6 @@
-import { z } from "zod";
-
+import { ErrorWithCode } from "@calcom/lib/errors";
 import type { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
 type ErrorShape = {
   message: string;
@@ -34,6 +34,10 @@ export function errorFormatter({ shape, error }: ErrorFormatterOptions): ErrorSh
         zodError: error.cause.flatten(),
       },
     };
+  }
+  // The tRPC wire shape drops `cause`, so clients cannot otherwise tell domain errors apart.
+  if (error.cause instanceof ErrorWithCode) {
+    return { ...shape, data: { ...shape.data, errorCode: error.cause.code } };
   }
   return shape;
 }

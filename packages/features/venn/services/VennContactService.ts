@@ -1,4 +1,5 @@
 import { ErrorWithCode } from "@calcom/lib/errors";
+import { Prisma } from "@calcom/prisma/client";
 import { z } from "zod";
 import type { AvailabilityAdapter } from "../adapters/types";
 import { parseBookingUrl } from "../links/parseBookingUrl";
@@ -26,16 +27,33 @@ export class VennContactService {
 
   async add(userId: number, input: z.input<typeof inputSchema>): Promise<VennContactDto> {
     const data = await this.validate(input);
-    return this.deps.contactRepo.create({ userId, ...data });
+    try {
+      return await this.deps.contactRepo.create({ userId, ...data });
+    } catch (error) {
+      throw this.mapWriteError(error, data.bookingUrl);
+    }
   }
 
   async update(userId: number, id: number, input: z.input<typeof inputSchema>): Promise<VennContactDto> {
     const data = await this.validate(input);
-    return this.deps.contactRepo.update(id, userId, data);
+    try {
+      return await this.deps.contactRepo.update(id, userId, data);
+    } catch (error) {
+      throw this.mapWriteError(error, data.bookingUrl);
+    }
   }
 
   remove(userId: number, id: number) {
     return this.deps.contactRepo.delete(id, userId);
+  }
+
+  private mapWriteError(error: unknown, bookingUrl: string) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return error;
+    if (error.code === "P2002") {
+      return ErrorWithCode.Factory.Conflict(`You already have a contact with the link ${bookingUrl}`);
+    }
+    if (error.code === "P2025") return ErrorWithCode.Factory.NotFound("Contact not found");
+    return error;
   }
 
   private async validate(input: z.input<typeof inputSchema>) {

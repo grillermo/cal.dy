@@ -25,6 +25,7 @@ import { oooRouter } from "./ooo/_router";
 import { slotsRouter } from "./slots/_router";
 import { travelSchedulesRouter } from "./travelSchedules/_router";
 import { userAdminRouter } from "./users/_router";
+import { vennRouter } from "./venn/_router";
 import { webhookRouter } from "./webhook/_router";
 
 export const viewerRouter = router({
@@ -41,6 +42,7 @@ export const viewerRouter = router({
   eventTypes: eventTypesRouter,
   eventTypesHeavy: heavyEventTypesRouter,
   availability: availabilityRouter,
+  venn: vennRouter,
   timezones: timezonesRouter,
   webhook: webhookRouter,
   slots: slotsRouter,
