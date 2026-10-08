@@ -1,0 +1,4 @@
+{
+  "status": "success",
+  "data": [{ "id": 1, "slug": "30min", "title": "Test 30 Min", "lengthInMinutes": 30 }]
+}
