@@ -258,6 +258,57 @@ describe("useVennSearch", () => {
     expect(statusFetch).not.toHaveBeenCalled();
   });
 
+  it("tolerates two consecutive polling errors and keeps polling", async () => {
+    statusFetch
+      .mockRejectedValueOnce(new Error("network"))
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValue(done);
+    const { result } = await startedHook();
+    expect(result.current.state.phase).toBe("polling");
+
+    await advance(1000);
+    expect(statusFetch).toHaveBeenCalledTimes(2);
+    expect(result.current.state.phase).toBe("polling");
+
+    await advance(1000);
+    expect(statusFetch).toHaveBeenCalledTimes(3);
+    expect(result.current.state.phase).toBe("done");
+  });
+
+  it("fails the search on the third consecutive polling error and stops polling", async () => {
+    statusFetch
+      .mockRejectedValueOnce(new Error("network 1"))
+      .mockRejectedValueOnce(new Error("network 2"))
+      .mockRejectedValueOnce(new Error("network 3"));
+    const { result } = await startedHook();
+    await advance(1000);
+    await advance(1000);
+    expect(statusFetch).toHaveBeenCalledTimes(3);
+    expect(result.current.state.phase).toBe("failed");
+    expect(result.current.state.error).toBe("network 3");
+
+    await advance(5000);
+    expect(statusFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("resets the error count after a successful poll", async () => {
+    statusFetch
+      .mockRejectedValueOnce(new Error("network"))
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce(pending)
+      .mockRejectedValueOnce(new Error("network"))
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValue(done);
+    const { result } = await startedHook();
+    for (let i = 0; i < 4; i++) {
+      await advance(1000);
+      expect(result.current.state.phase).toBe("polling");
+    }
+    await advance(1000);
+    expect(statusFetch).toHaveBeenCalledTimes(6);
+    expect(result.current.state.phase).toBe("done");
+  });
+
   it("stops polling after unmount, even when an in-flight fetch resolves PENDING", async () => {
     let resolveInFlight: (value: unknown) => void = () => undefined;
     statusFetch.mockResolvedValueOnce(pending).mockImplementationOnce(

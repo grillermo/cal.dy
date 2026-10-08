@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 90_000;
+// A single dropped request (deploy, flaky network) should not fail a search that is still running on the server.
+const MAX_CONSECUTIVE_POLL_ERRORS = 2;
 
 type VennStatus = RouterOutputs["viewer"]["venn"]["searchStatus"];
 type Timer = ReturnType<typeof setTimeout>;
@@ -129,7 +131,7 @@ export function useVennSearch() {
   );
 
   const poll = useCallback(
-    async (runId: number, searchId: string) => {
+    async (runId: number, searchId: string, consecutiveErrors = 0) => {
       let result: VennStatus;
       try {
         // staleTime 0 so each poll hits the server instead of returning the cached PENDING result.
@@ -139,6 +141,10 @@ export function useVennSearch() {
         );
       } catch (error) {
         if (!run.isCurrent(runId)) return;
+        if (consecutiveErrors < MAX_CONSECUTIVE_POLL_ERRORS) {
+          run.schedule(() => void poll(runId, searchId, consecutiveErrors + 1));
+          return;
+        }
         run.clear();
         setState((s) => ({ ...s, phase: "failed", error: errorMessage(error), isRefreshing: false }));
         return;
