@@ -84,6 +84,11 @@ export class VennBookingService {
     if (!stillOpen) throw new ErrorWithCode(ErrorCode.VennSlotTaken, "That time is no longer available");
 
     const contacts = await this.deps.contactRepo.findManyByIdsAndUserId(search.contactIds, userId);
+    if (contacts.length !== search.contactIds.length) {
+      throw ErrorWithCode.Factory.BadRequest(
+        "A contact in this search was removed. Find times again before booking."
+      );
+    }
     const attendees = dedupeAttendees(orderBy(contacts, search.contactIds), input.organizer.email);
     const [primary, ...guests] = attendees;
     if (!primary) throw ErrorWithCode.Factory.BadRequest("No attendees left after removing the organizer");

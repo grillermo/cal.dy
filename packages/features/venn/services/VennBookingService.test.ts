@@ -102,8 +102,17 @@ describe("VennBookingService.book", () => {
   });
 
   it("rejects when only the organizer is left as an attendee", async () => {
-    const { service, deps } = make(doneSearch(NOW), undefined, [contacts[3]]);
+    const { service, deps } = make({ ...doneSearch(NOW), contactIds: [4] }, undefined, [contacts[3]]);
     await expect(service.book(7, input)).rejects.toThrow(/no attendees/i);
+    expect(deps.createBooking).not.toHaveBeenCalled();
+  });
+
+  it("rejects instead of silently dropping a contact deleted after the search started", async () => {
+    const { service, deps } = make(doneSearch(NOW), undefined, contacts.slice(0, 3));
+    await expect(service.book(7, input)).rejects.toMatchObject({
+      code: ErrorCode.BadRequest,
+      message: expect.stringMatching(/removed/i),
+    });
     expect(deps.createBooking).not.toHaveBeenCalled();
   });
 
