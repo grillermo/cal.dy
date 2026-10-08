@@ -1,5 +1,6 @@
 import type { Tasker } from "@calcom/features/tasker/tasker";
 import { ErrorWithCode } from "@calcom/lib/errors";
+import logger from "@calcom/lib/logger";
 import { type FetchLocalSlots, localSlotsToStarts } from "../adapters/local";
 import { buildCandidateSlots, defaultDurationMinutes } from "../candidateSlots";
 import { ALLOWED_DURATIONS, MAX_WINDOW_DAYS, SEARCH_TTL_MS } from "../constants";
@@ -13,6 +14,7 @@ import type {
 import type { VennProviderKind, VennSlots } from "../types";
 import type { VennHiddenEventTypeService } from "./VennHiddenEventTypeService";
 
+const log = logger.getSubLogger({ prefix: ["[venn]"] });
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export interface IVennSearchServiceDeps {
@@ -64,10 +66,21 @@ export class VennSearchService {
       ...input,
       contactIds: ids,
     });
-    for (const searchResultId of resultIds) {
-      await this.deps.tasker.create("vennFetchAvailability", { searchResultId }, { maxAttempts: 3 });
+    try {
+      for (const searchResultId of resultIds) {
+        await this.deps.tasker.create("vennFetchAvailability", { searchResultId }, { maxAttempts: 3 });
+      }
+    } catch (error) {
+      // Rows without a task would stay PENDING until the 24h cleanup, so fail the search now.
+      await this.deps.searchRepo.setStatus(id, "FAILED");
+      throw error;
     }
-    this.deps.kick();
+    try {
+      this.deps.kick();
+    } catch (error) {
+      // Rows and tasks are committed; the cron processor will still pick them up (after() throws outside a request scope).
+      log.warn("Could not kick the task queue", error);
+    }
     return { searchId: id };
   }
 

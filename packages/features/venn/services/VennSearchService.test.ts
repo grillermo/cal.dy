@@ -74,6 +74,46 @@ describe("startSearch", () => {
     expect(kick).toHaveBeenCalledTimes(1);
   });
 
+  it("marks the search FAILED and rethrows when enqueueing fails", async () => {
+    const { service, tasker, searchRepo, kick } = make(null);
+    tasker.create.mockResolvedValueOnce("t1").mockRejectedValueOnce(new Error("queue down"));
+    await expect(service.startSearch(7, input)).rejects.toThrow("queue down");
+    expect(searchRepo.setStatus).toHaveBeenCalledWith("s1", "FAILED");
+    expect(kick).not.toHaveBeenCalled();
+  });
+
+  it("still returns the searchId when kick throws", async () => {
+    const { service, kick } = make(null);
+    kick.mockImplementation(() => {
+      throw new Error("outside request scope");
+    });
+    expect(await service.startSearch(7, input)).toEqual({ searchId: "s1" });
+  });
+
+  it("creates rows, then enqueues, then kicks", async () => {
+    const { service, searchRepo, tasker, kick } = make(null);
+    await service.startSearch(7, input);
+    const order = (m: { mock: { invocationCallOrder: number[] } }) => m.mock.invocationCallOrder[0];
+    expect(order(searchRepo.createSearchWithResults)).toBeLessThan(order(tasker.create));
+    expect(order(tasker.create)).toBeLessThan(order(kick));
+  });
+
+  it("dedupes duplicate contact ids", async () => {
+    const { service, searchRepo, contactRepo } = make(null);
+    await service.startSearch(7, { ...input, contactIds: [1, 2, 2, 1] });
+    expect(contactRepo.findManyByIdsAndUserId).toHaveBeenCalledWith([1, 2], 7);
+    expect(searchRepo.createSearchWithResults).toHaveBeenCalledWith(
+      expect.objectContaining({ contactIds: [1, 2] })
+    );
+  });
+
+  it("rejects windowEnd <= windowStart", async () => {
+    const { service } = make(null);
+    await expect(service.startSearch(7, { ...input, windowEnd: input.windowStart })).rejects.toThrow(
+      /windowEnd/
+    );
+  });
+
   it("rejects a window longer than 31 days", async () => {
     const { service } = make(null);
     await expect(
@@ -105,6 +145,16 @@ describe("searchStatus", () => {
     expect(res.status).toBe("PENDING");
     expect(res.slots).toBeUndefined();
     expect(res.participants.map((p) => p.status)).toEqual(["DONE", "PENDING"]);
+  });
+
+  it("lets FAILED beat PENDING", async () => {
+    const { service } = make(
+      search([
+        result({ status: "PENDING", freeIntervals: null }),
+        result({ id: 2, contactId: 2, status: "FAILED", error: "boom", freeIntervals: null }),
+      ])
+    );
+    expect((await service.searchStatus(7, { searchId: "s1" })).status).toBe("FAILED");
   });
 
   it("reports FAILED naming the contact and link, never dropping it", async () => {
