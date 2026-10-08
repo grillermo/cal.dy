@@ -72,6 +72,11 @@ const getTabs = (
           trackingMetadata: { section: "my_account", page: "out_of_office" },
         },
         {
+          name: "venn_contacts",
+          href: "/settings/my-account/venn-contacts",
+          trackingMetadata: { section: "my_account", page: "venn_contacts" },
+        },
+        {
           name: "push_notifications",
           href: "/settings/my-account/push-notifications",
           trackingMetadata: { section: "my_account", page: "push_notifications" },
