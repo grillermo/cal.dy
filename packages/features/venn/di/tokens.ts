@@ -13,4 +13,6 @@ export const VENN_DI_TOKENS = {
   VENN_FETCH_AVAILABILITY_SERVICE_MODULE: Symbol("VennFetchAvailabilityServiceModule"),
   VENN_SEARCH_SERVICE: Symbol("VennSearchService"),
   VENN_SEARCH_SERVICE_MODULE: Symbol("VennSearchServiceModule"),
+  VENN_BOOKING_SERVICE: Symbol("VennBookingService"),
+  VENN_BOOKING_SERVICE_MODULE: Symbol("VennBookingServiceModule"),
 };
