@@ -1,3 +1,4 @@
+import { ErrorWithCode } from "@calcom/lib/errors";
 import { describe, expect, it, vi } from "vitest";
 import { VennFetchAvailabilityService } from "./VennFetchAvailabilityService";
 
@@ -57,6 +58,21 @@ describe("VennFetchAvailabilityService.run", () => {
       5,
       expect.stringContaining("https://cal.com/bob/30min")
     );
+  });
+
+  it.each([
+    ["NotFound", ErrorWithCode.Factory.NotFound("event not found")],
+    ["BadRequest", ErrorWithCode.Factory.BadRequest("not a supported link")],
+  ])("marks a permanent %s error FAILED on the first attempt and completes without retrying", async (_, error) => {
+    const { service, repo } = make(error);
+    await expect(service.run(5, { isFinalAttempt: false })).resolves.toBeUndefined();
+    expect(repo.markResultFailed).toHaveBeenCalledWith(5, `https://cal.com/bob/30min: ${error.message}`);
+  });
+
+  it("retries a transient ErrorWithCode (e.g. provider unreachable) on a non-final attempt", async () => {
+    const { service, repo } = make(ErrorWithCode.Factory.InternalServerError("could not reach"));
+    await expect(service.run(5, { isFinalAttempt: false })).rejects.toThrow("could not reach");
+    expect(repo.markResultFailed).not.toHaveBeenCalled();
   });
 
   it("is a no-op when the result row was already cleaned up", async () => {
