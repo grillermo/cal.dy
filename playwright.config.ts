@@ -27,10 +27,12 @@ const IS_EMBED_TEST = process.argv.some((a) => a.startsWith("--project=@calcom/e
 const IS_EMBED_REACT_TEST = process.argv.some((a) => a.startsWith("--project=@calcom/embed-react"));
 
 // Suppress all webServer logs to reduce noise during E2E tests
+// VENN_FAKE_ADAPTERS only takes effect together with NEXT_PUBLIC_IS_E2E=1 (see venn getAdapter), so venn E2E tests
+// never call the real Calendly/cal.com APIs.
 const webServer: PlaywrightTestConfig["webServer"] = [
   {
     command:
-      "yarn workspace @calcom/web copy-app-store-static && NEXT_PUBLIC_IS_E2E=1 NODE_OPTIONS='--dns-result-order=ipv4first' yarn workspace @calcom/web start -p 3000",
+      "yarn workspace @calcom/web copy-app-store-static && NEXT_PUBLIC_IS_E2E=1 VENN_FAKE_ADAPTERS=1 NODE_OPTIONS='--dns-result-order=ipv4first' yarn workspace @calcom/web start -p 3000",
     port: 3000,
     timeout: 60_000,
     reuseExistingServer: !process.env.CI,

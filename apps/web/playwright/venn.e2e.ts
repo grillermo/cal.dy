@@ -2,7 +2,8 @@ import prisma from "@calcom/prisma";
 import { expect } from "@playwright/test";
 import { test } from "./lib/fixtures";
 
-// Runs only with NEXT_PUBLIC_IS_E2E=1 and VENN_FAKE_ADAPTERS=1 on the server so the Calendly and cal.com adapters are faked.
+// Needs NEXT_PUBLIC_IS_E2E=1 and VENN_FAKE_ADAPTERS=1 on the server (set by the Playwright webServer command) so the
+// Calendly and cal.com adapters are faked.
 test.describe("venn", () => {
   test("select two contacts, wait for results, pick a slot, land on the booking page", async ({
     page,
@@ -16,13 +17,13 @@ test.describe("venn", () => {
     await page.getByTestId("venn-contact-email").fill("ana@example.com");
     await page.getByTestId("venn-contact-link").fill("https://calendly.com/ana/60min");
     await page.getByTestId("venn-contact-submit").click();
-    await expect(page.getByText("ana@example.com")).toBeVisible();
+    await expect(page.getByTestId("venn-contact-row").filter({ hasText: "ana@example.com" })).toHaveCount(1);
 
     await page.getByTestId("venn-contact-name").fill("Bob");
     await page.getByTestId("venn-contact-email").fill("bob@example.com");
     await page.getByTestId("venn-contact-link").fill("https://cal.com/bob/30min");
     await page.getByTestId("venn-contact-submit").click();
-    await expect(page.getByText("bob@example.com")).toBeVisible();
+    await expect(page.getByTestId("venn-contact-row").filter({ hasText: "bob@example.com" })).toHaveCount(1);
 
     await page.goto("/venn");
     await page.getByTestId("venn-contact-checkbox-ana@example.com").check();
