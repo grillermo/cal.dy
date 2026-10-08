@@ -65,6 +65,7 @@
     "prisma": "yarn workspace @calcom/prisma prisma",
     "start": "turbo run start --filter=\"@calcom/web\"",
     "tdd": "vitest watch",
+    "venn:smoke": "node -r ts-node/register/transpile-only scripts/venn-smoke.ts",
     "e2e": "NEXT_PUBLIC_IS_E2E=1 yarn playwright test --project=@calcom/web",
     "e2e:app-store": "NEXT_PUBLIC_IS_E2E=1 QUICK=true yarn playwright test --project=@calcom/app-store",
     "e2e:embed": "NEXT_PUBLIC_IS_E2E=1 yarn playwright test --project=@calcom/embed-core",
