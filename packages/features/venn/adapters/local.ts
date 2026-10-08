@@ -19,7 +19,8 @@ export type FetchLocalSlots = (input: {
   duration?: number;
 }) => Promise<{ slots: Record<string, { time: string }[]> }>;
 
-export const fetchLocalSlotsFromService: FetchLocalSlots = async ({ duration, ...input }) => {
+// The service takes the already-parsed tRPC input, where duration is a number (the router's schema coerces the string).
+export const fetchLocalSlotsFromService: FetchLocalSlots = async (input) => {
   const result = await getAvailableSlotsService().getAvailableSlots({
     ctx: {},
     input: {
@@ -27,7 +28,6 @@ export const fetchLocalSlotsFromService: FetchLocalSlots = async ({ duration, ..
       timeZone: "UTC",
       isTeamEvent: false,
       orgSlug: null,
-      duration: duration === undefined ? undefined : String(duration),
     } as Parameters<ReturnType<typeof getAvailableSlotsService>["getAvailableSlots"]>[0]["input"],
   });
   return { slots: result.slots };
