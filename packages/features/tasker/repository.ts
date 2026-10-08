@@ -2,6 +2,7 @@ import { prisma } from "@calcom/prisma";
 import type { PrismaClient } from "@calcom/prisma";
 import { Prisma } from "@calcom/prisma/client";
 
+import { isFinalAttempt } from "./isFinalAttempt";
 import { type TaskTypes } from "./tasker";
 
 const whereSucceeded: Prisma.TaskWhereInput = {
@@ -134,6 +135,16 @@ export class TaskRepository {
         }),
       },
     });
+  }
+
+  async isFinalAttempt(taskId?: string): Promise<boolean> {
+    if (!taskId) return false;
+    const task = await this.deps.prismaClient.task.findUnique({
+      where: { id: taskId },
+      select: { attempts: true, maxAttempts: true },
+    });
+    if (!task) return false;
+    return isFinalAttempt(task.attempts, task.maxAttempts);
   }
 
   async succeed(taskId: string) {

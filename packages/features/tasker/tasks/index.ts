@@ -22,6 +22,8 @@ const tasks: Record<TaskTypes, () => Promise<TaskHandler>> = {
     import("./sendAwaitingPaymentEmail").then((module) => module.sendAwaitingPaymentEmail),
   bookingAudit: () => import("./bookingAudit").then((module) => module.bookingAudit),
   webhookDelivery: () => import("./webhookDelivery").then((module) => module.webhookDelivery),
+  vennFetchAvailability: () =>
+    import("./vennFetchAvailability").then((module) => module.vennFetchAvailability),
 };
 
 export const tasksConfig = {
@@ -31,6 +33,11 @@ export const tasksConfig = {
   },
   webhookDelivery: {
     minRetryIntervalMins: IS_PRODUCTION ? 5 : 1,
+    maxAttempts: 3,
+  },
+  // Retry reschedules only for a truthy interval, so 0 would retry on the very next poll.
+  vennFetchAvailability: {
+    minRetryIntervalMins: 1,
     maxAttempts: 3,
   },
 };

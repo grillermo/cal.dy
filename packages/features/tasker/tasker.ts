@@ -24,6 +24,9 @@ type TaskPayloads = {
   webhookDelivery: z.infer<
     typeof import("@calcom/features/webhooks/lib/types/webhookTask").webhookTaskPayloadSchema
   >;
+  vennFetchAvailability: z.infer<
+    typeof import("./tasks/vennFetchAvailability").vennFetchAvailabilityPayloadSchema
+  >;
 };
 export type TaskTypes = keyof TaskPayloads;
 export type TaskHandler = (payload: string, taskId?: string) => Promise<void>;
