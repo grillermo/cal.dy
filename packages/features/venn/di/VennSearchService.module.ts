@@ -1,8 +1,8 @@
 import { bindModuleToClassOnToken, createModule, type ModuleLoader } from "@calcom/features/di/di";
 import tasker from "@calcom/features/tasker";
 import { TaskProcessor } from "@calcom/features/tasker/task-processor";
-import { after } from "next/server";
 import { fetchLocalSlotsFromService } from "../adapters/local";
+import { VENN_TASK_LEASE_MS } from "../constants";
 import type { VennContactRepository } from "../repositories/VennContactRepository";
 import type { VennSearchRepository } from "../repositories/VennSearchRepository";
 import type { VennHiddenEventTypeService } from "../services/VennHiddenEventTypeService";
@@ -22,7 +22,12 @@ class VennSearchServiceImpl extends VennSearchService {
     super({
       ...deps,
       tasker,
-      kick: () => after(() => new TaskProcessor().processQueue()),
+      // Runs only this search's tasks (never processQueue(), which would drain every feature's due tasks).
+      kick: (taskIds, leasedUntil) =>
+        new TaskProcessor().processLeasedTasks("vennFetchAvailability", taskIds, {
+          leasedUntil,
+          extendByMs: VENN_TASK_LEASE_MS,
+        }),
       fetchSlots: fetchLocalSlotsFromService,
       now: () => new Date(),
     });

@@ -38,8 +38,9 @@ const make = (
     deleteOlderThan: vi.fn(async () => 0),
   };
   const contactRepo = { findManyByIdsAndUserId: vi.fn(async () => contacts) };
-  const tasker = { create: vi.fn(async () => "task") };
-  const kick = vi.fn();
+  let taskSeq = 0;
+  const tasker = { create: vi.fn(async () => `task-${++taskSeq}`) };
+  const kick = vi.fn(async (_taskIds: string[], _leasedUntil: Date) => undefined);
   const fetchSlots = vi.fn(async () => ({ slots: { "2026-10-10": organizer } }));
   const hidden = { getOrCreate: vi.fn(async () => ({ id: 99, slug: "venn-group-meeting" })) };
   const service = new VennSearchService({
@@ -62,16 +63,32 @@ describe("startSearch", () => {
     timeZone: "UTC",
   };
 
-  it("creates rows, enqueues one task per contact with maxAttempts 3, then kicks the queue", async () => {
+  const LEASED_UNTIL = new Date(NOW.getTime() + 3 * 60 * 1000);
+
+  it("enqueues one leased task per contact with maxAttempts 3, then kicks exactly those tasks", async () => {
     const { service, tasker, kick } = make(null);
     expect(await service.startSearch(7, input)).toEqual({ searchId: "s1" });
     expect(tasker.create).toHaveBeenCalledTimes(2);
     expect(tasker.create).toHaveBeenCalledWith(
       "vennFetchAvailability",
       { searchResultId: 11 },
-      { maxAttempts: 3 }
+      { maxAttempts: 3, scheduledAt: LEASED_UNTIL }
     );
     expect(kick).toHaveBeenCalledTimes(1);
+    expect(kick).toHaveBeenCalledWith(["task-1", "task-2"], LEASED_UNTIL);
+  });
+
+  it("does not wait for the kick to finish", async () => {
+    const { service, kick } = make(null);
+    kick.mockImplementation(() => new Promise<undefined>(() => {}));
+    expect(await service.startSearch(7, input)).toEqual({ searchId: "s1" });
+  });
+
+  it("still returns the searchId when the kick rejects", async () => {
+    const { service, kick } = make(null);
+    kick.mockRejectedValueOnce(new Error("db gone"));
+    expect(await service.startSearch(7, input)).toEqual({ searchId: "s1" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
   it("marks the search FAILED and rethrows when enqueueing fails", async () => {

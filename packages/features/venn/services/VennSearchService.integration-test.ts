@@ -27,7 +27,7 @@ const makeService = () => {
     contactRepo,
     hiddenEventTypeService: { getOrCreate: async () => ({ id: 1, slug: "venn-group-meeting" }) } as never,
     tasker: tasker as never,
-    kick: vi.fn(),
+    kick: vi.fn(async () => undefined),
     fetchSlots: async () => ({
       slots: { "2026-10-10": [{ time: "2026-10-10T10:00:00.000Z" }, { time: "2026-10-10T10:30:00.000Z" }] },
     }),

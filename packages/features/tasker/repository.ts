@@ -147,6 +147,44 @@ export class TaskRepository {
     return isFinalAttempt(task.attempts, task.maxAttempts);
   }
 
+  /**
+   * Claims one task for an immediate run outside the cron processor.
+   *
+   * getNextBatch() never claims rows, so a task run outside the cron must be invisible to it. Such a task is
+   * created with a future `scheduledAt` (`leasedUntil`), which getNextBatch skips. This compare-and-set update
+   * succeeds for exactly one caller: it requires the row to still carry the original lease (a previous claim or a
+   * retry() changes it) and the lease to be unexpired (once expired, the cron may already have selected the row).
+   * Postgres re-checks the WHERE clause after a concurrent update commits, so two racing claims cannot both match.
+   * Winning moves `scheduledAt` further out so the cron keeps skipping the row while the claimer runs it; a failed
+   * run goes through retry(), which reschedules it for the cron.
+   */
+  async claimLeased({
+    taskId,
+    type,
+    leasedUntil,
+    extendByMs,
+  }: {
+    taskId: string;
+    type: TaskTypes;
+    leasedUntil: Date;
+    extendByMs: number;
+  }): Promise<{ id: string; type: string; payload: string } | null> {
+    const { count } = await this.deps.prismaClient.task.updateMany({
+      where: {
+        id: taskId,
+        type,
+        succeededAt: null,
+        scheduledAt: { equals: leasedUntil, gt: new Date() },
+      },
+      data: { scheduledAt: new Date(leasedUntil.getTime() + extendByMs) },
+    });
+    if (count !== 1) return null;
+    return this.deps.prismaClient.task.findUnique({
+      where: { id: taskId },
+      select: { id: true, type: true, payload: true },
+    });
+  }
+
   async succeed(taskId: string) {
     return this.deps.prismaClient.task.update({
       where: {

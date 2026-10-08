@@ -9,3 +9,6 @@ export const HIDDEN_EVENT_SLUG = "venn-group-meeting";
 export const HIDDEN_EVENT_TITLE = "Group Meeting";
 export const DEFAULT_TITLE = "Group Meeting";
 export const VENN_TITLE_FIELD = "venn_title";
+// A fetch task is created leased this far ahead so the cron skips it while startSearch's kick runs it; it must
+// outlast the slowest fetch (a few requests x 3 attempts x 10 s timeout). If the kick is lost, the cron runs it after.
+export const VENN_TASK_LEASE_MS = 3 * 60 * 1000;

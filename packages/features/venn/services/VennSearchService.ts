@@ -3,7 +3,7 @@ import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import { type FetchLocalSlots, localSlotsToStarts } from "../adapters/local";
 import { buildCandidateSlots, defaultDurationMinutes } from "../candidateSlots";
-import { ALLOWED_DURATIONS, MAX_WINDOW_DAYS, SEARCH_TTL_MS } from "../constants";
+import { ALLOWED_DURATIONS, MAX_WINDOW_DAYS, SEARCH_TTL_MS, VENN_TASK_LEASE_MS } from "../constants";
 import { deserializeIntervals, intersectAll, slotsToIntervals } from "../intervals";
 import type { VennContactRepository } from "../repositories/VennContactRepository";
 import type {
@@ -22,7 +22,8 @@ export interface IVennSearchServiceDeps {
   contactRepo: VennContactRepository;
   hiddenEventTypeService: VennHiddenEventTypeService;
   tasker: Pick<Tasker, "create">;
-  kick: () => void;
+  /** Starts the given leased tasks in the background; startSearch never awaits it. */
+  kick: (taskIds: string[], leasedUntil: Date) => Promise<void>;
   fetchSlots: FetchLocalSlots;
   now: () => Date;
 }
@@ -66,22 +67,34 @@ export class VennSearchService {
       ...input,
       contactIds: ids,
     });
+    const leasedUntil = new Date(this.deps.now().getTime() + VENN_TASK_LEASE_MS);
+    const taskIds: string[] = [];
     try {
       for (const searchResultId of resultIds) {
-        await this.deps.tasker.create("vennFetchAvailability", { searchResultId }, { maxAttempts: 3 });
+        taskIds.push(
+          await this.deps.tasker.create(
+            "vennFetchAvailability",
+            { searchResultId },
+            { maxAttempts: 3, scheduledAt: leasedUntil }
+          )
+        );
       }
     } catch (error) {
       // Rows without a task would stay PENDING until the 24h cleanup, so fail the search now.
       await this.deps.searchRepo.setStatus(id, "FAILED");
       throw error;
     }
-    try {
-      this.deps.kick();
-    } catch (error) {
-      // Rows and tasks are committed; the cron processor will still pick them up (after() throws outside a request scope).
-      log.warn("Could not kick the task queue", error);
-    }
+    this.kickInBackground(taskIds, leasedUntil);
     return { searchId: id };
+  }
+
+  // Rows and tasks are committed, so a failed kick only delays the fetch: the cron runs the tasks once the lease ends.
+  private kickInBackground(taskIds: string[], leasedUntil: Date): void {
+    try {
+      void this.deps.kick(taskIds, leasedUntil).catch((error) => log.warn("Venn task kick failed", error));
+    } catch (error) {
+      log.warn("Could not kick venn tasks", error);
+    }
   }
 
   async searchStatus(
