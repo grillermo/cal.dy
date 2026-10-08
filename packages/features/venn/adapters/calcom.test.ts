@@ -53,4 +53,20 @@ describe("CalcomAdapter", () => {
       new CalcomAdapter({ fetch: f as unknown as typeof fetch, sleep }).fetchAvailability(args)
     ).rejects.toThrow(/unexpected response/i);
   });
+
+  it("names the link when the upstream keeps returning 503", async () => {
+    const f = vi.fn(async () => json({}, 503));
+    await expect(
+      new CalcomAdapter({ fetch: f as unknown as typeof fetch, sleep }).fetchAvailability(args)
+    ).rejects.toThrow(args.url);
+  });
+
+  it("names the link on a network failure", async () => {
+    const f = vi.fn(async () => {
+      throw new Error("ECONNRESET");
+    });
+    await expect(
+      new CalcomAdapter({ fetch: f as unknown as typeof fetch, sleep }).fetchAvailability(args)
+    ).rejects.toThrow(new RegExp(`${args.url}.*ECONNRESET`));
+  });
 });

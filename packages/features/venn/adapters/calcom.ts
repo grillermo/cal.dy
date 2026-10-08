@@ -33,11 +33,10 @@ export class CalcomAdapter implements AvailabilityAdapter {
     const user = encodeURIComponent(parsed.profile);
     const slug = encodeURIComponent(parsed.eventSlug);
 
-    const slotsRes = await fetchWithRetry(
-      this.fetchFn,
+    const slotsRes = await this.get(
+      url,
       `https://api.cal.com/v2/slots?username=${user}&eventTypeSlug=${slug}&start=${start.toISOString()}&end=${end.toISOString()}&timeZone=UTC`,
-      { method: "GET", headers: { "cal-api-version": "2024-09-04" } },
-      { sleep: this.sleep }
+      { "cal-api-version": "2024-09-04" }
     );
     if (!slotsRes.ok) {
       throw ErrorWithCode.Factory.NotFound(`cal.com event not found for ${url} (HTTP ${slotsRes.status})`);
@@ -47,11 +46,10 @@ export class CalcomAdapter implements AvailabilityAdapter {
       throw ErrorWithCode.Factory.BadRequest(`Unexpected response from cal.com slots for ${url}`);
     }
 
-    const typeRes = await fetchWithRetry(
-      this.fetchFn,
+    const typeRes = await this.get(
+      url,
       `https://api.cal.com/v2/event-types?username=${user}&eventSlug=${slug}`,
-      { method: "GET", headers: { "cal-api-version": "2024-06-14" } },
-      { sleep: this.sleep }
+      { "cal-api-version": "2024-06-14" }
     );
     const typeBody = eventTypeSchema.safeParse(typeRes.ok ? await typeRes.json() : null);
     if (!typeBody.success) {
@@ -63,5 +61,15 @@ export class CalcomAdapter implements AvailabilityAdapter {
       .flat()
       .map((s) => new Date(s.start));
     return { durationMinutes, freeIntervals: slotsToIntervals(starts, durationMinutes) };
+  }
+
+  private async get(link: string, url: string, headers: Record<string, string>) {
+    try {
+      return await fetchWithRetry(this.fetchFn, url, { method: "GET", headers }, { sleep: this.sleep });
+    } catch (error) {
+      throw ErrorWithCode.Factory.BadRequest(
+        `Could not reach cal.com for ${link}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 }

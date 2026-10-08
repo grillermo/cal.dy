@@ -85,4 +85,30 @@ describe("CalendlyAdapter", () => {
       })
     ).rejects.toThrow(/unexpected response/i);
   });
+
+  it("names the link when the upstream keeps returning 503", async () => {
+    const fetchMock = vi.fn(async () => json({}, 503));
+    const adapter = new CalendlyAdapter({ fetch: fetchMock as unknown as typeof fetch, sleep });
+    await expect(
+      adapter.fetchAvailability({
+        url: LINK,
+        start: new Date("2026-10-20T00:00:00Z"),
+        end: new Date("2026-10-27T00:00:00Z"),
+      })
+    ).rejects.toThrow(LINK);
+  });
+
+  it("names the link on a network failure", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("ECONNRESET");
+    });
+    const adapter = new CalendlyAdapter({ fetch: fetchMock as unknown as typeof fetch, sleep });
+    await expect(
+      adapter.fetchAvailability({
+        url: LINK,
+        start: new Date("2026-10-20T00:00:00Z"),
+        end: new Date("2026-10-27T00:00:00Z"),
+      })
+    ).rejects.toThrow(new RegExp(`${LINK}.*ECONNRESET`));
+  });
 });

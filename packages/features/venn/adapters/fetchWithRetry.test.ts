@@ -43,4 +43,15 @@ describe("fetchWithRetry", () => {
       fetchWithRetry(f as unknown as typeof fetch, "https://x", {}, { attempts: 1, timeoutMs: 10, sleep })
     ).rejects.toThrow("aborted");
   });
+
+  it("aborts and retries when the response body never arrives", async () => {
+    const f = vi.fn(async () => {
+      const body = new ReadableStream({ start() {} });
+      return new Response(body, { status: 200 });
+    });
+    await expect(
+      fetchWithRetry(f as unknown as typeof fetch, "https://x", {}, { attempts: 2, timeoutMs: 20, sleep })
+    ).rejects.toThrow(/timed out/);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
 });

@@ -61,6 +61,7 @@ export class CalendlyAdapter implements AvailabilityAdapter {
     };
 
     const lookupRes = await this.get(
+      url,
       `https://calendly.com/api/booking/event_types/lookup?event_type_slug=${encodeURIComponent(
         parsed.eventSlug
       )}&profile_slug=${encodeURIComponent(parsed.profile)}`,
@@ -77,6 +78,7 @@ export class CalendlyAdapter implements AvailabilityAdapter {
     const starts: Date[] = [];
     for (const { rangeStart, rangeEnd } of monthsInWindow(start, end)) {
       const rangeRes = await this.get(
+        url,
         `https://calendly.com/api/booking/event_types/${lookup.data.uuid}/calendar/range?timezone=UTC&diagnostics=false&range_start=${rangeStart}&range_end=${rangeEnd}`,
         headers
       );
@@ -105,7 +107,13 @@ export class CalendlyAdapter implements AvailabilityAdapter {
     };
   }
 
-  private get(url: string, headers: Record<string, string>) {
-    return fetchWithRetry(this.fetchFn, url, { method: "GET", headers }, { sleep: this.sleep });
+  private async get(link: string, url: string, headers: Record<string, string>) {
+    try {
+      return await fetchWithRetry(this.fetchFn, url, { method: "GET", headers }, { sleep: this.sleep });
+    } catch (error) {
+      throw ErrorWithCode.Factory.BadRequest(
+        `Could not reach Calendly for ${link}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 }
