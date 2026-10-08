@@ -8,3 +8,4 @@ export const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
 export const HIDDEN_EVENT_SLUG = "venn-group-meeting";
 export const HIDDEN_EVENT_TITLE = "Group Meeting";
 export const DEFAULT_TITLE = "Group Meeting";
+export const VENN_TITLE_FIELD = "venn_title";

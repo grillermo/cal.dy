@@ -7,4 +7,6 @@ export const VENN_DI_TOKENS = {
   VENN_EVENT_TYPE_REPOSITORY_MODULE: Symbol("VennEventTypeRepositoryModule"),
   VENN_CONTACT_SERVICE: Symbol("VennContactService"),
   VENN_CONTACT_SERVICE_MODULE: Symbol("VennContactServiceModule"),
+  VENN_HIDDEN_EVENT_TYPE_SERVICE: Symbol("VennHiddenEventTypeService"),
+  VENN_HIDDEN_EVENT_TYPE_SERVICE_MODULE: Symbol("VennHiddenEventTypeServiceModule"),
 };
