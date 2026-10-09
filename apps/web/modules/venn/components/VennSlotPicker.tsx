@@ -35,6 +35,16 @@ export function VennSlotPicker({ slots, timeZone, selectedTime, onSelect }: Prop
     month: null,
   });
   const current = picked.source === slots ? picked : { source: slots, day: null, month: null };
+  // DatePicker reports its selected date from an effect after every render, so a pick that changes
+  // nothing must keep the previous state or the picker re-renders forever and starves router.push.
+  const updatePicked = (change: { day?: string; month?: Dayjs }) =>
+    setPicked((previous) => {
+      const base = previous.source === slots ? previous : { source: slots, day: null, month: null };
+      const day = change.day ?? base.day;
+      const month = change.month ?? base.month;
+      if (previous === base && day === base.day && month?.valueOf() === base.month?.valueOf()) return previous;
+      return { ...base, day, month };
+    });
   const activeDay = current.day && days.includes(current.day) ? current.day : (days[0] ?? null);
   const browsingDate = current.month ?? dayjs(activeDay ?? undefined).startOf("month");
 
@@ -53,9 +63,9 @@ export function VennSlotPicker({ slots, timeZone, selectedTime, onSelect }: Prop
             slots={slots}
             selected={activeDay ? dayjs(activeDay) : null}
             browsingDate={browsingDate}
-            onMonthChange={(date) => setPicked({ ...current, month: date.startOf("month") })}
+            onMonthChange={(date) => updatePicked({ month: date.startOf("month") })}
             onChange={(date) => {
-              if (date) setPicked({ ...current, day: date.format("YYYY-MM-DD") });
+              if (date) updatePicked({ day: date.format("YYYY-MM-DD") });
             }}
             showNoAvailabilityDialog={false}
           />
